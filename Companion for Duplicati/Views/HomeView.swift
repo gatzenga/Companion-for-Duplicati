@@ -86,25 +86,16 @@ struct HomeView: View {
     @ViewBuilder
     private var topBanner: some View {
         if store.isServerRunning {
+            // Server is running — show whatever is happening, no own logic
             if let progress = store.progressState {
-                let isCompleted = !progress.stillCounting && progress.calculatedProgress >= 1.0
-                if isCompleted {
-                    // 100 % erreicht → nächstes Backup anzeigen
-                    if let next = store.serverState?.ProposedSchedule.first {
-                        nextBackupSection(name: store.backupName(for: next.Item1), schedule: next.Item2)
-                    }
-                } else {
-                    // Backup oder anderer Job läuft mit Fortschrittsdetails
-                    bannerSection {
-                        ProgressBannerView(
-                            progress: progress,
-                            backupName: store.backupName(for: progress.backupID),
-                            lang: appLanguage
-                        )
-                    }
+                bannerSection {
+                    ProgressBannerView(
+                        progress: progress,
+                        backupName: store.backupName(for: progress.backupID),
+                        lang: appLanguage
+                    )
                 }
             } else {
-                // Server Running, aber kein progressState (z. B. Recreate / Repair / Verify)
                 bannerSection {
                     GenericOperationCard(
                         backupName: store.serverState?.ActiveTask.map { store.backupName(for: $0.Item2) },
@@ -113,7 +104,7 @@ struct HomeView: View {
                 }
             }
         } else if let next = store.serverState?.ProposedSchedule.first {
-            // Idle → nächstes geplantes Backup
+            // Server idle — show next scheduled backup
             nextBackupSection(name: store.backupName(for: next.Item1), schedule: next.Item2)
         }
     }

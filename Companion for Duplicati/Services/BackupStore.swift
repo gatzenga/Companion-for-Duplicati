@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppTab: Hashable {
-    case home, notifications, alerts, settings
+    case home, notifications, settings
 }
 
 enum SortOrder: String, CaseIterable {
@@ -20,8 +20,6 @@ enum SortOrder: String, CaseIterable {
 
 @Observable
 final class BackupStore {
-    // MARK: - Backup-Liste
-
     var backups: [BackupListItem] = []
     var isLoggedIn = false
     var isLoading = false
@@ -29,33 +27,15 @@ final class BackupStore {
     var sortOrder: SortOrder = .name
     var serverURL: String = ""
     var selectedTab: AppTab = .home
-
-    // MARK: - Log-Daten (ID → letzter geparster Log)
-
-    var backupLogs: [String: BackupLogMessage] = [:]
-
-    // MARK: - Notifications
-
     var notifications: [DuplicatiNotification] = []
-
-    // MARK: - Live-Status (Polling)
-
     var progressState: ProgressState?
     var serverState: ServerState?
 
     var isServerRunning: Bool {
-        serverState?.ProgramState == "Running"
+        serverState?.ActiveTask != nil
     }
 
-    // Badge-Zähler für Tabs
     var notificationBadgeCount: Int { notifications.count }
-
-    var alertBadgeCount: Int {
-        backups.filter { backup in
-            if case .error = effectiveStatus(for: backup) { return true }
-            return false
-        }.count
-    }
 
     private let api = APIService()
     private var pollingTask: Task<Void, Never>?
@@ -69,87 +49,34 @@ final class BackupStore {
         }
     }
 
-    // MARK: - Effektiver Status (Log-basiert mit Fallback auf Metadaten)
+    // MARK: - Effective Status
 
     func effectiveStatus(for backup: BackupListItem) -> BackupStatus {
         let active = notifications.filter { $0.BackupID == backup.Backup.ID }
-        let log = backupLogs[backup.Backup.ID]
 
-        let hasErrorNotification = active.contains(where: { $0.isError })
-        let hasWarningNotification = active.contains(where: { $0.isWarning })
-
-        // -------------------------------------------------------
-        // 1) Error-Notification vorhanden
-        //    → rot SOLANGE der Log NICHT zeigt, dass der Job
-        //      inzwischen nochmal gelaufen ist (ok ODER warning).
-        //    Ein neuer Run mit Warning löst den Error-Zustand auf
-        //    (Punkt 4: Error → Warning-Übergang).
-        // -------------------------------------------------------
-        if hasErrorNotification {
-            if let log {
-                switch log.derivedStatus {
-                case .ok:
-                    // Job lief erfolgreich nach dem Error → grün
-                    return .ok
-                case .warning:
-                    // Job lief nochmal, aber mit Warning → Error ist aufgelöst,
-                    // Warning-Status übernehmen (orange solange Warning-Notif da)
-                    return hasWarningNotification ? .warning : .ok
-                case .error:
-                    // Log zeigt immer noch Error → rot
-                    break
-                }
-            }
+        if active.contains(where: { $0.isError }) {
             let msg = active.first(where: { $0.isError })?.Message ?? "Error"
             return .error(msg)
         }
 
-        // -------------------------------------------------------
-        // 2) Warning-Notification vorhanden (kein Error)
-        //    → orange bis die Benachrichtigung quittiert wird
-        // -------------------------------------------------------
-        if hasWarningNotification {
+        if active.contains(where: { $0.isWarning }) {
             return .warning
         }
 
-        // -------------------------------------------------------
-        // 3) Keine passende Notification → Log auswerten
-        // -------------------------------------------------------
-        guard let log else {
-            return backup.status // Metadaten-Fallback
-        }
-
-        switch log.derivedStatus {
-        case .ok:
-            return .ok
-        case .warning:
-            // Log-Warning ohne aktive Notification → bereits quittiert → grün
-            return .ok
-        case .error(let msgs):
-            // Log-Error ohne Notification → rot bis Job erfolgreich läuft
-            return .error(msgs.first ?? "Unknown error")
-        }
+        // No notifications — status is purely based on whether the backup has ever run.
+        // LastErrorMessage in metadata is intentionally ignored here: notifications
+        // are the single source of truth for error/warning state.
+        let lastBackupDate = backup.Backup.Metadata.LastBackupDate ?? ""
+        return lastBackupDate.isEmpty ? .neverRun : .ok
     }
 
-    // MARK: - Backups mit Fehlern (für Alerts-Tab)
-
-    var alertBackups: [(backup: BackupListItem, errors: [String])] {
-        backups.compactMap { backup in
-            guard let log = backupLogs[backup.Backup.ID] else { return nil }
-            if case .error(let msgs) = log.derivedStatus, !msgs.isEmpty {
-                return (backup, msgs)
-            }
-            return nil
-        }
-    }
-
-    // MARK: - Backup-Name auflösen
+    // MARK: - Backup Name
 
     func backupName(for id: String) -> String {
         backups.first { $0.Backup.ID == id }?.Backup.Name ?? "Backup \(id)"
     }
 
-    // MARK: - Sortierte Backup-Liste
+    // MARK: - Sorted Backups
 
     var sortedBackups: [BackupListItem] {
         switch sortOrder {
@@ -199,7 +126,6 @@ final class BackupStore {
         stopPolling()
         KeychainService.deleteAll()
         backups = []
-        backupLogs = [:]
         notifications = []
         isLoggedIn = false
         serverURL = ""
@@ -208,7 +134,7 @@ final class BackupStore {
         serverState = nil
     }
 
-    // MARK: - Backups laden (inkl. Logs und Notifications)
+    // MARK: - Fetch Backups
 
     func fetchBackups() async {
         guard isLoggedIn else { return }
@@ -217,11 +143,7 @@ final class BackupStore {
         do {
             backups = try await api.fetchBackups()
             errorMessage = nil
-
-            // Logs und Notifications parallel nachladen
-            async let logsTask: Void = fetchAllLogs()
-            async let notifTask: Void = fetchNotificationsData()
-            _ = await (logsTask, notifTask)
+            await fetchNotificationsData()
         } catch {
             if let apiError = error as? APIError, case .unauthorized = apiError {
                 isLoggedIn = false
@@ -235,56 +157,30 @@ final class BackupStore {
         isLoading = false
     }
 
-    // MARK: - Alle Logs parallel laden
-
-    func fetchAllLogs() async {
-        guard !backups.isEmpty else { return }
-
-        await withTaskGroup(of: (String, BackupLogMessage?).self) { group in
-            for backup in backups {
-                let id = backup.Backup.ID
-                group.addTask {
-                    let log = try? await self.api.fetchLastLog(id: id)
-                    return (id, log)
-                }
-            }
-
-            var newLogs: [String: BackupLogMessage] = [:]
-            for await (id, log) in group {
-                if let log { newLogs[id] = log }
-            }
-            backupLogs = newLogs
-        }
-    }
-
-    // MARK: - Notifications laden
+    // MARK: - Fetch Notifications
 
     func fetchNotificationsData() async {
         do {
             notifications = try await api.fetchNotifications()
-        } catch {
-            // Fehler still ignorieren
-        }
+        } catch {}
     }
 
-    // MARK: - Notification quittieren
+    // MARK: - Dismiss Notification
 
     func dismissNotification(id: Int) async {
         do {
             try await api.dismissNotification(id: id)
             notifications.removeAll { $0.notificationID == id }
-        } catch {
-            // Fehler still ignorieren
-        }
+        } catch {}
     }
 
-    // MARK: - Backup starten
+    // MARK: - Run Backup
 
     func runBackup(id: String) async throws {
         try await api.runBackup(id: id)
     }
 
-    // MARK: - Polling starten
+    // MARK: - Polling
 
     func startPolling() {
         guard isLoggedIn else { return }
@@ -293,36 +189,25 @@ final class BackupStore {
         pollingTask = Task {
             while !Task.isCancelled {
                 await pollOnce()
-                let delay: Duration = isServerRunning ? .seconds(2) : .seconds(30)
+                let delay: Duration = isServerRunning ? .seconds(2) : .seconds(5)
                 try? await Task.sleep(for: delay)
             }
         }
     }
-
-    // MARK: - Polling stoppen
 
     func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
     }
 
-    // MARK: - Einzelner Poll-Durchlauf
-
     func pollOnce() async {
-        // ServerState separat fangen: schlägt er fehl, bleibt der alte Zustand erhalten.
         guard let state = try? await api.fetchServerState() else { return }
         serverState = state
 
-        if state.ProgramState == "Running" {
-            // ProgressState separat fangen: schlägt er fehl (Task bereits beendet),
-            // wird der Banner sofort ausgeblendet statt eingefroren zu bleiben.
+        if state.ActiveTask != nil {
             progressState = try? await api.fetchProgressState()
         } else {
             progressState = nil
-        }
-
-        // Notifications bei jedem Idle-Poll aktualisieren
-        if !isServerRunning {
             await fetchNotificationsData()
         }
     }

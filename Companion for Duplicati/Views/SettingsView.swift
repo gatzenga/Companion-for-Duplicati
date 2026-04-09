@@ -172,7 +172,7 @@ struct SettingsView: View {
 
     private var linksSection: some View {
         Section(tr("Links & Contact", "Links & Kontakt", lang)) {
-            if let url = URL(string: "https://github.com/GatzeStreicheln/DuplicatiCompanion") {
+            if let url = URL(string: "https://github.com/GatzeStreicheln/Companion-for-Duplicati") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "chevron.left.forwardslash.chevron.right")
@@ -186,7 +186,7 @@ struct SettingsView: View {
                 }
             }
 
-            if let url = URL(string: "https://gatzestreicheln.github.io/AzuraPlayer/privacy.html") {
+            if let url = URL(string: "https://gatzestreicheln.github.io/Companion-for-Duplicati/privacy.html") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "hand.raised")
@@ -200,7 +200,7 @@ struct SettingsView: View {
                 }
             }
 
-            if let url = URL(string: "mailto:vasco@vkugler.ch") {
+            if let url = URL(string: "mailto:kontakt@vkugler.ch") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "envelope")

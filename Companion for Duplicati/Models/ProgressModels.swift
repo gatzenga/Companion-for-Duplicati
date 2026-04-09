@@ -54,7 +54,7 @@ struct ProgressState: Codable {
             return lang == "de" ? "Lokale Änderungen suchen" : "Scanning for local changes"
         case "Backup_ProcessingFiles":
             return lang == "de" ? "Dateien werden verarbeitet" : "Processing files"
-        case "Backup_WaitingForUpload":
+        case "Backup_WaitForUpload", "Backup_WaitingForUpload":
             return lang == "de" ? "Warten auf Upload" : "Waiting for upload"
         case "Backup_Finalize":
             return lang == "de" ? "Finalisierung" : "Finalizing"
@@ -62,8 +62,12 @@ struct ProgressState: Codable {
             return lang == "de" ? "Alte Versionen löschen" : "Deleting old versions"
         case "Backup_Compact":
             return lang == "de" ? "Komprimierung" : "Compacting"
-        case "Backup_PostBackupTest":
+        case "Backup_VerificationUpload":
+            return lang == "de" ? "Verifizierung hochladen" : "Uploading verification"
+        case "Backup_PostBackupVerify":
             return lang == "de" ? "Nachprüfung" : "Post-backup verification"
+        case "Backup_PostBackupTest":
+            return lang == "de" ? "Backup-Test" : "Testing backup"
         case "Backup_VerifyRemote":
             return lang == "de" ? "Remote-Prüfung" : "Verifying remote"
         case "Backup_Complete":
@@ -123,7 +127,7 @@ struct ProgressState: Codable {
 
 struct ServerState: Codable {
     let ActiveTask: ActiveTaskItem?
-    let ProgramState: String           // "Running" oder "Idle"
+    let ProgramState: String           // "Running" (scheduler active) or "Paused"
     let ProposedSchedule: [ScheduledItem]
     let HasWarning: Bool
     let HasError: Bool

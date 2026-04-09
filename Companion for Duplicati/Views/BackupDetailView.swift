@@ -134,8 +134,10 @@ struct BackupDetailView: View {
             }
 
         case .warning:
-            if let log = store.backupLogs[backup.Backup.ID],
-               let warnings = log.Warnings, !warnings.isEmpty {
+            let warnings = store.notifications
+                .filter { $0.BackupID == backup.Backup.ID && $0.isWarning }
+                .compactMap { $0.Message }
+            if !warnings.isEmpty {
                 Section(tr("Warnings", "Warnungen", lang)) {
                     ForEach(warnings, id: \.self) { warning in
                         Text(warning)
