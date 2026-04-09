@@ -31,15 +31,16 @@ struct ProgressState: Codable {
         case stillCounting = "StillCounting"
     }
 
-    // Berechneter Fortschritt (0.0 – 1.0)
-    // Primär: Dateianzahl; Fallback: Dateigrösse
-    var calculatedProgress: Double {
-        if totalFileCount > 0 {
-            return min(1.0, Double(processedFileCount) / Double(totalFileCount))
-        } else if totalFileSize > 0 {
+    // Best progress value (0.0 – 1.0)
+    // Uses file-based progress when available (backup/restore phases),
+    // falls back to OverallProgress for operations without file data (Recreate, Repair, Verify etc.)
+    var displayProgress: Double {
+        if totalFileSize > 0 {
             return min(1.0, Double(processedFileSize) / Double(totalFileSize))
+        } else if totalFileCount > 0 {
+            return min(1.0, Double(processedFileCount) / Double(totalFileCount))
         }
-        return 0
+        return min(1.0, overallProgress)
     }
 
     // Übersetzte Phase für die Anzeige (Englisch/Deutsch)

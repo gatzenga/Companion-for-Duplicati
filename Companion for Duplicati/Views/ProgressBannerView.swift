@@ -73,22 +73,24 @@ struct ProgressBannerView: View {
                                 )
                             )
                             .frame(
-                                width: max(0, geo.size.width * progress.calculatedProgress),
+                                width: max(0, geo.size.width * progress.displayProgress),
                                 height: 8
                             )
-                            .animation(.easeInOut(duration: 0.5), value: progress.calculatedProgress)
+                            .animation(.easeInOut(duration: 0.5), value: progress.displayProgress)
                     }
                 }
                 .frame(height: 8)
 
                 HStack {
-                    Text("\(formatSwissInt(progress.processedFileCount)) / \(formatSwissInt(progress.totalFileCount)) \(lang == "de" ? "Dateien" : "files")")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    if progress.totalFileCount > 0 {
+                        Text("\(formatSwissInt(progress.processedFileCount)) / \(formatSwissInt(progress.totalFileCount)) \(lang == "de" ? "Dateien" : "files")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
 
                     Spacer()
 
-                    Text("\(Int(progress.calculatedProgress * 100))%")
+                    Text("\(Int(progress.displayProgress * 100))%")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundStyle(.blue)
@@ -101,9 +103,11 @@ struct ProgressBannerView: View {
 
     private var countersRow: some View {
         HStack {
-            Text("\(formatBytes(progress.processedFileSize)) / \(formatBytes(progress.totalFileSize))")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if progress.totalFileSize > 0 {
+                Text("\(formatBytes(progress.processedFileSize)) / \(formatBytes(progress.totalFileSize))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
 
