@@ -2,6 +2,9 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(BackupStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appLanguage) private var appLanguage
+    @Environment(\.timeFormat) private var timeFormat
 
     var body: some View {
         NavigationStack {
@@ -9,29 +12,29 @@ struct HomeView: View {
                 if !store.isLoggedIn {
                     EmptyStateView()
                 } else if store.isLoading && store.backups.isEmpty {
-                    ProgressView("Lade Backups…")
+                    ProgressView(tr("Loading backups…", "Lade Backups…", appLanguage))
                 } else if let error = store.errorMessage, store.backups.isEmpty {
                     ContentUnavailableView {
-                        Label("Fehler", systemImage: "exclamationmark.triangle")
+                        Label(tr("Error", "Fehler", appLanguage), systemImage: "exclamationmark.triangle")
                     } description: {
                         Text(error)
                     } actions: {
-                        Button("Erneut versuchen") {
+                        Button(tr("Retry", "Erneut versuchen", appLanguage)) {
                             Task { await store.fetchBackups() }
                         }
                         .buttonStyle(.borderedProminent)
                     }
                 } else if store.backups.isEmpty {
                     ContentUnavailableView(
-                        "Keine Backups",
+                        tr("No Backups", "Keine Backups", appLanguage),
                         systemImage: "externaldrive.badge.questionmark",
-                        description: Text("Keine Backup-Jobs auf dem Server gefunden.")
+                        description: Text(tr("No backup jobs found on server.", "Keine Backup-Jobs auf dem Server gefunden.", appLanguage))
                     )
                 } else {
                     backupList
                 }
             }
-            .navigationTitle("Backups")
+            .navigationTitle(tr("Backups", "Backups", appLanguage))
             .toolbar {
                 if store.isLoggedIn && !store.backups.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -43,20 +46,94 @@ struct HomeView: View {
         .task {
             if store.isLoggedIn {
                 await store.fetchBackups()
+                store.startPolling()
+                // Sofort einen Poll triggern für aktuelle Server-Daten
+                await store.pollOnce()
+            }
+        }
+        // Polling pausieren wenn App in den Hintergrund geht
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                store.stopPolling()
+            } else if phase == .active && store.isLoggedIn {
+                // Sofort einen Poll, um nach Background aktuell zu sein
+                Task {
+                    await store.pollOnce()
+                    store.startPolling()
+                }
             }
         }
     }
 
+    // MARK: - Backup-Liste
+
     private var backupList: some View {
-        List(store.sortedBackups) { backup in
-            NavigationLink(destination: BackupDetailView(backup: backup)) {
-                BackupRowView(backup: backup)
+        List {
+            topBanner
+            ForEach(store.sortedBackups) { backup in
+                NavigationLink(destination: BackupDetailView(backup: backup)) {
+                    BackupRowView(backup: backup)
+                }
             }
         }
         .refreshable {
             await store.fetchBackups()
         }
     }
+
+    // MARK: - Oberer Banner (laufend / nächstes Backup)
+
+    @ViewBuilder
+    private var topBanner: some View {
+        if store.isServerRunning {
+            if let progress = store.progressState {
+                let isCompleted = !progress.stillCounting && progress.calculatedProgress >= 1.0
+                if isCompleted {
+                    // 100 % erreicht → nächstes Backup anzeigen
+                    if let next = store.serverState?.ProposedSchedule.first {
+                        nextBackupSection(name: store.backupName(for: next.Item1), schedule: next.Item2)
+                    }
+                } else {
+                    // Backup oder anderer Job läuft mit Fortschrittsdetails
+                    bannerSection {
+                        ProgressBannerView(
+                            progress: progress,
+                            backupName: store.backupName(for: progress.backupID),
+                            lang: appLanguage
+                        )
+                    }
+                }
+            } else {
+                // Server Running, aber kein progressState (z. B. Recreate / Repair / Verify)
+                bannerSection {
+                    GenericOperationCard(
+                        backupName: store.serverState?.ActiveTask.map { store.backupName(for: $0.Item2) },
+                        lang: appLanguage
+                    )
+                }
+            }
+        } else if let next = store.serverState?.ProposedSchedule.first {
+            // Idle → nächstes geplantes Backup
+            nextBackupSection(name: store.backupName(for: next.Item1), schedule: next.Item2)
+        }
+    }
+
+    private func nextBackupSection(name: String, schedule: String) -> some View {
+        bannerSection {
+            NextBackupCard(backupName: name, scheduleLabel: formatScheduleDetailed(schedule, timeFormat: timeFormat, lang: appLanguage))
+        }
+    }
+
+    private func bannerSection<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        Section {
+            content()
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    // MARK: - Sortier-Menü
 
     private var sortMenu: some View {
         Menu {
@@ -65,9 +142,9 @@ struct HomeView: View {
                     store.sortOrder = order
                 } label: {
                     if store.sortOrder == order {
-                        Label(order.label, systemImage: "checkmark")
+                        Label(order.label(lang: appLanguage), systemImage: "checkmark")
                     } else {
-                        Text(order.label)
+                        Text(order.label(lang: appLanguage))
                     }
                 }
             }

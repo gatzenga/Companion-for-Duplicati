@@ -3,75 +3,98 @@ import SwiftUI
 struct BackupDetailView: View {
     let backup: BackupListItem
     @Environment(BackupStore.self) private var store
+    @AppStorage("appLanguage") private var lang = "en"
+    @AppStorage("timeFormat") private var timeFormat = "24h"
     @State private var showRunConfirmation = false
     @State private var showRunSuccess = false
     @State private var showError = false
     @State private var runErrorMessage = ""
     @State private var isRunning = false
 
+    private var currentStatus: BackupStatus {
+        store.effectiveStatus(for: backup)
+    }
+
     var body: some View {
         List {
+            infoSection
             statusSection
             sizeSection
             errorSection
             actionsSection
         }
         .navigationTitle(backup.Backup.Name)
-        .confirmationDialog(
-            "Backup starten?",
-            isPresented: $showRunConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Backup starten") {
+        .navigationBarTitleDisplayMode(.inline)
+        .alert(tr("Run Backup?", "Backup starten?", lang), isPresented: $showRunConfirmation) {
+            Button(tr("Run Backup", "Backup starten", lang)) {
                 Task { await runBackup() }
             }
-            Button("Abbrechen", role: .cancel) {}
+            Button(tr("Cancel", "Abbrechen", lang), role: .cancel) {}
         } message: {
-            Text("Möchtest du das Backup \"\(backup.Backup.Name)\" jetzt starten?")
+            Text(tr(
+                "Do you want to start the backup \"\(backup.Backup.Name)\" now?",
+                "Möchtest du das Backup \"\(backup.Backup.Name)\" jetzt starten?",
+                lang
+            ))
         }
-        .alert("Backup gestartet", isPresented: $showRunSuccess) {
+        .alert(tr("Backup Started", "Backup gestartet", lang), isPresented: $showRunSuccess) {
             Button("OK") {}
         } message: {
-            Text("Das Backup wurde erfolgreich gestartet.")
+            Text(tr(
+                "The backup was started successfully.",
+                "Das Backup wurde erfolgreich gestartet.",
+                lang
+            ))
         }
-        .alert("Fehler", isPresented: $showError) {
+        .alert(tr("Error", "Fehler", lang), isPresented: $showError) {
             Button("OK") {}
         } message: {
             Text(runErrorMessage)
         }
     }
 
+    // MARK: - Info (Backup-Typ)
+
+    @ViewBuilder
+    private var infoSection: some View {
+        if let backendType = backup.backendType(lang: lang) {
+            Section(tr("Info", "Info", lang)) {
+                detailRow(tr("Type", "Typ", lang), value: backendType)
+            }
+        }
+    }
+
     // MARK: - Status
 
     private var statusSection: some View {
-        Section("Status") {
+        Section(tr("Status", "Status", lang)) {
             HStack {
-                Text("Status")
+                Text(tr("Status", "Status", lang))
                     .foregroundStyle(.secondary)
                 Spacer()
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(backup.status.color)
+                        .fill(currentStatus.color)
                         .frame(width: 8, height: 8)
-                    Text(backup.status.shortLabel)
-                        .foregroundStyle(backup.status.color)
+                    Text(getStatusLabel())
+                        .foregroundStyle(currentStatus.color)
                 }
             }
 
             if let lastBackup = backup.Backup.Metadata.LastBackupStartedString, !lastBackup.isEmpty {
-                detailRow("Letztes Backup", value: lastBackup)
+                detailRow(tr("Last Backup", "Letztes Backup", lang), value: lastBackup)
             }
 
-            if let nextBackup = formatScheduleDate(backup.Schedule?.Time) {
-                detailRow("Nächstes Backup", value: nextBackup)
+            if let nextBackup = formatScheduleDate(backup.Schedule?.Time, lang: lang, timeFormat: timeFormat) {
+                detailRow(tr("Next Backup", "Nächstes Backup", lang), value: nextBackup)
             }
 
-            if let duration = formatDuration(backup.Backup.Metadata.LastBackupDuration) {
-                detailRow("Dauer", value: duration)
+            if let duration = formatDuration(backup.Backup.Metadata.LastBackupDuration, lang: lang) {
+                detailRow(tr("Duration", "Dauer", lang), value: duration)
             }
 
-            if let interval = formatInterval(backup.Schedule?.Repeat) {
-                detailRow("Intervall", value: interval)
+            if let interval = formatInterval(backup.Schedule?.Repeat, lang: lang) {
+                detailRow(tr("Interval", "Intervall", lang), value: interval)
             }
         }
     }
@@ -79,52 +102,58 @@ struct BackupDetailView: View {
     // MARK: - Size
 
     private var sizeSection: some View {
-        Section("Grösse") {
+        Section(tr("Size", "Grösse", lang)) {
             if let sourceSize = backup.Backup.Metadata.SourceSizeString, !sourceSize.isEmpty {
-                detailRow("Quelldaten", value: sourceSize)
+                detailRow(tr("Source Data", "Quelldaten", lang), value: sourceSize)
             }
 
             if let count = backup.Backup.Metadata.SourceFilesCount, !count.isEmpty {
-                detailRow("Quelldateien", value: formatSwissNumber(count))
+                detailRow(tr("Source Files", "Quelldateien", lang), value: formatSwissNumber(count))
             }
 
             if let targetSize = backup.Backup.Metadata.TargetSizeString, !targetSize.isEmpty {
-                detailRow("Backup-Grösse", value: targetSize)
+                detailRow(tr("Backup Size", "Backup-Grösse", lang), value: targetSize)
             }
 
             if let count = backup.Backup.Metadata.TargetFilesCount, !count.isEmpty {
-                detailRow("Backup-Dateien", value: formatSwissNumber(count))
+                detailRow(tr("Backup Files", "Backup-Dateien", lang), value: formatSwissNumber(count))
             }
         }
     }
 
-    // MARK: - Error
+    // MARK: - Error (nur wenn aktueller Fehler oder Warnung)
 
     @ViewBuilder
     private var errorSection: some View {
-        if case .error(let message) = backup.status {
-            Section("Fehler") {
+        switch currentStatus {
+        case .error(let message):
+            Section(tr("Error", "Fehler", lang)) {
                 Text(message)
                     .foregroundStyle(.red)
+                    .font(.callout)
+            }
 
-                if let errorDate = backup.Backup.Metadata.LastErrorDate, !errorDate.isEmpty,
-                   let formatted = formatErrorDate(errorDate) {
-                    HStack {
-                        Text("Fehler-Datum")
-                            .foregroundStyle(.red.opacity(0.8))
-                        Spacer()
-                        Text(formatted)
-                            .foregroundStyle(.red)
+        case .warning:
+            if let log = store.backupLogs[backup.Backup.ID],
+               let warnings = log.Warnings, !warnings.isEmpty {
+                Section(tr("Warnings", "Warnungen", lang)) {
+                    ForEach(warnings, id: \.self) { warning in
+                        Text(warning)
+                            .foregroundStyle(.orange)
+                            .font(.callout)
                     }
                 }
             }
+
+        default:
+            EmptyView()
         }
     }
 
     // MARK: - Actions
 
     private var actionsSection: some View {
-        Section("Aktionen") {
+        Section(tr("Actions", "Aktionen", lang)) {
             Button {
                 showRunConfirmation = true
             } label: {
@@ -134,7 +163,7 @@ struct BackupDetailView: View {
                         ProgressView()
                             .padding(.trailing, 8)
                     }
-                    Text("Backup jetzt starten")
+                    Text(tr("Run Backup Now", "Backup jetzt starten", lang))
                         .fontWeight(.semibold)
                     Spacer()
                 }
@@ -144,6 +173,15 @@ struct BackupDetailView: View {
     }
 
     // MARK: - Helpers
+
+    private func getStatusLabel() -> String {
+        switch currentStatus {
+        case .ok:       tr("OK", "OK", lang)
+        case .warning:  tr("Warning", "Warnung", lang)
+        case .error:    tr("Error", "Fehler", lang)
+        case .neverRun: tr("Never Run", "Noch nie ausgeführt", lang)
+        }
+    }
 
     private func detailRow(_ label: String, value: String) -> some View {
         HStack {

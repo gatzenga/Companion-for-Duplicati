@@ -8,6 +8,7 @@ enum KeychainService {
         case password = "server_password"
         case token = "access_token"
         case serverURL = "server_url"
+        case appPIN = "app_pin"
     }
 
     static func save(_ value: String, for key: Key) {
@@ -57,5 +58,6 @@ enum KeychainService {
         delete(.password)
         delete(.token)
         delete(.serverURL)
+        delete(.appPIN)
     }
 }

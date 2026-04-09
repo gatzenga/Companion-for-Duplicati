@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Errors
+// MARK: - Fehlertypen
 
 enum APIError: LocalizedError {
     case invalidURL
@@ -12,17 +12,17 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: "Ungültige Server-URL"
-        case .unauthorized: "Nicht autorisiert"
-        case .serverError(let code): "Serverfehler (\(code))"
-        case .networkError(let error): error.localizedDescription
-        case .decodingError: "Antwort konnte nicht verarbeitet werden"
-        case .loginFailed(let msg): msg
+        case .invalidURL:             "Ungültige Server-URL"
+        case .unauthorized:           "Nicht autorisiert"
+        case .serverError(let code):  "Serverfehler (\(code))"
+        case .networkError(let err):  err.localizedDescription
+        case .decodingError:          "Antwort konnte nicht verarbeitet werden"
+        case .loginFailed(let msg):   msg
         }
     }
 }
 
-// MARK: - SSL Delegate
+// MARK: - SSL-Delegate (selbstsignierte Zertifikate)
 
 private final class SSLDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     func urlSession(
@@ -41,8 +41,9 @@ private final class SSLDelegate: NSObject, URLSessionDelegate, @unchecked Sendab
 
 // MARK: - API Service
 
+@Observable
 final class APIService {
-    private var baseURL: String = ""
+    private(set) var baseURL: String = ""
     private var token: String = ""
     private let session: URLSession
 
@@ -103,7 +104,7 @@ final class APIService {
         return backups
     }
 
-    // MARK: - Run Backup
+    // MARK: - Backup starten
 
     func runBackup(id: String) async throws {
         guard let url = URL(string: "\(baseURL)/api/v1/backup/\(id)/run") else {
@@ -136,7 +137,75 @@ final class APIService {
         }
     }
 
-    // MARK: - Internal
+    // MARK: - Letzter Log-Eintrag eines Backups
+
+    // Gibt den geparsten BackupLogMessage des letzten Runs zurück.
+    // pagesize=1 holt nur den neuesten Eintrag.
+    func fetchLastLog(id: String) async throws -> BackupLogMessage? {
+        let data = try await authenticatedRequest(path: "/api/v1/backup/\(id)/log?pagesize=1")
+
+        guard let entries = try? JSONDecoder().decode([BackupLogEntry].self, from: data),
+              let first = entries.first else {
+            return nil
+        }
+
+        return parseLogMessage(first.Message)
+    }
+
+    // MARK: - Notifications
+
+    func fetchNotifications() async throws -> [DuplicatiNotification] {
+        let data = try await authenticatedRequest(path: "/api/v1/notifications")
+
+        guard let notifications = try? JSONDecoder().decode([DuplicatiNotification].self, from: data) else {
+            return []
+        }
+
+        return notifications
+    }
+
+    // Einzelne Notification quittieren (löschen)
+    func dismissNotification(id: Int) async throws {
+        guard let url = URL(string: "\(baseURL)/api/v1/notification/\(id)") else {
+            throw APIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await session.data(for: request)
+
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            guard try await refreshToken() else { throw APIError.unauthorized }
+        }
+    }
+
+    // MARK: - Server-Status
+
+    func fetchServerState() async throws -> ServerState {
+        let data = try await authenticatedRequest(path: "/api/v1/serverstate")
+
+        guard let state = try? JSONDecoder().decode(ServerState.self, from: data) else {
+            throw APIError.decodingError
+        }
+
+        return state
+    }
+
+    // MARK: - Live-Fortschritt
+
+    func fetchProgressState() async throws -> ProgressState {
+        let data = try await authenticatedRequest(path: "/api/v1/progressstate")
+
+        guard let progress = try? JSONDecoder().decode(ProgressState.self, from: data) else {
+            throw APIError.decodingError
+        }
+
+        return progress
+    }
+
+    // MARK: - Interne Hilfsmethoden
 
     private func authenticatedRequest(path: String) async throws -> Data {
         guard let url = URL(string: "\(baseURL)\(path)") else {
