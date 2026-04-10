@@ -24,19 +24,24 @@ enum APIError: LocalizedError {
 
 // MARK: - SSL-Delegate
 // Accepts self-signed certificates — intentional for Homelab/self-hosted Duplicati instances.
-// This bypasses TLS validation: only use with trusted local networks or known servers.
+// WARNING: This bypasses TLS validation when enabled. Only use with trusted local networks or known servers.
 private final class SSLDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     func urlSession(
         _ session: URLSession,
         didReceive challenge: URLAuthenticationChallenge,
         completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
-        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+        // If self-signed certificates are trusted by user, accept all ServerTrust challenges
+        if UserDefaults.standard.bool(forKey: "trustSelfSignedCerts"),
+           challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
            let serverTrust = challenge.protectionSpace.serverTrust {
-            completionHandler(.useCredential, URLCredential(trust: serverTrust))
-        } else {
-            completionHandler(.performDefaultHandling, nil)
+            let credential = URLCredential(trust: serverTrust)
+            completionHandler(.useCredential, credential)
+            return
         }
+
+        // Default handling for all other cases
+        completionHandler(.performDefaultHandling, nil)
     }
 }
 
@@ -46,12 +51,26 @@ private final class SSLDelegate: NSObject, URLSessionDelegate, @unchecked Sendab
 final class APIService {
     private(set) var baseURL: String = ""
     private var token: String = ""
-    private let session: URLSession
+    private var session: URLSession
 
     init() {
+        session = APIService.makeSession()
+    }
+
+    private static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
-        session = URLSession(configuration: config, delegate: SSLDelegate(), delegateQueue: nil)
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        return URLSession(configuration: config, delegate: SSLDelegate(), delegateQueue: queue)
+    }
+
+    /// Invalidiert die bestehende URLSession und erstellt eine neue.
+    /// Muss aufgerufen werden wenn der trustSelfSignedCerts-Toggle sich ändert,
+    /// damit der OS-TLS-Session-Cache nicht den alten Zustand beibehält.
+    func resetSession() {
+        session.invalidateAndCancel()
+        session = APIService.makeSession()
     }
 
     func configure(baseURL: String, token: String) {
@@ -108,34 +127,7 @@ final class APIService {
     // MARK: - Backup starten
 
     func runBackup(id: String) async throws {
-        guard let url = URL(string: "\(baseURL)/api/v1/backup/\(id)/run") else {
-            throw APIError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (_, response) = try await session.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.networkError(URLError(.badServerResponse))
-        }
-
-        if http.statusCode == 401 {
-            guard try await refreshToken() else { throw APIError.unauthorized }
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            let (_, retry) = try await session.data(for: request)
-            guard let retryHTTP = retry as? HTTPURLResponse,
-                  (200...299).contains(retryHTTP.statusCode) else {
-                throw APIError.unauthorized
-            }
-            return
-        }
-
-        guard (200...299).contains(http.statusCode) else {
-            throw APIError.serverError(http.statusCode)
-        }
+        try await authenticatedPost(path: "/api/v1/backup/\(id)/run")
     }
 
     // MARK: - Backup-Detail (volle Konfiguration)
@@ -190,7 +182,7 @@ final class APIService {
         let data = try await authenticatedRequest(path: "/api/v1/notifications")
 
         guard let notifications = try? JSONDecoder().decode([DuplicatiNotification].self, from: data) else {
-            return []
+            throw APIError.decodingError
         }
 
         return notifications
@@ -236,14 +228,10 @@ final class APIService {
 
     // MARK: - Interne Hilfsmethoden
 
-    private func authenticatedPost(path: String, method: String = "POST") async throws {
-        guard let url = URL(string: "\(baseURL)\(path)") else { throw APIError.invalidURL }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (_, response) = try await session.data(for: request)
+    /// Führt einen Request aus und wiederholt ihn einmalig nach Token-Refresh bei 401.
+    private func perform(_ request: URLRequest) async throws -> Data {
+        var req = request
+        let (data, response) = try await session.data(for: req)
 
         guard let http = response as? HTTPURLResponse else {
             throw APIError.networkError(URLError(.badServerResponse))
@@ -251,40 +239,8 @@ final class APIService {
 
         if http.statusCode == 401 {
             guard try await refreshToken() else { throw APIError.unauthorized }
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            let (_, retry) = try await session.data(for: request)
-            guard let retryHTTP = retry as? HTTPURLResponse,
-                  (200...299).contains(retryHTTP.statusCode) else {
-                throw APIError.unauthorized
-            }
-            return
-        }
-
-        guard (200...299).contains(http.statusCode) else {
-            throw APIError.serverError(http.statusCode)
-        }
-    }
-
-    private func authenticatedRequest(path: String) async throws -> Data {
-        guard let url = URL(string: "\(baseURL)\(path)") else {
-            throw APIError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.networkError(URLError(.badServerResponse))
-        }
-
-        if http.statusCode == 401 {
-            guard try await refreshToken() else { throw APIError.unauthorized }
-
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            let (retryData, retryResponse) = try await session.data(for: request)
-
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let (retryData, retryResponse) = try await session.data(for: req)
             guard let retryHTTP = retryResponse as? HTTPURLResponse,
                   (200...299).contains(retryHTTP.statusCode) else {
                 throw APIError.unauthorized
@@ -297,6 +253,21 @@ final class APIService {
         }
 
         return data
+    }
+
+    private func authenticatedRequest(path: String) async throws -> Data {
+        guard let url = URL(string: "\(baseURL)\(path)") else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return try await perform(request)
+    }
+
+    private func authenticatedPost(path: String, method: String = "POST") async throws {
+        guard let url = URL(string: "\(baseURL)\(path)") else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        _ = try await perform(request)
     }
 
     private func refreshToken() async throws -> Bool {

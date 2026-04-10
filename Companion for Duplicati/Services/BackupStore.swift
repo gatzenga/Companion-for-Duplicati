@@ -120,6 +120,12 @@ final class BackupStore {
         isLoading = false
     }
 
+    // MARK: - Session Reset
+
+    func resetSession() {
+        api.resetSession()
+    }
+
     // MARK: - Logout
 
     func logout() {

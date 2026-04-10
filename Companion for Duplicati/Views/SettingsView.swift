@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage("isDarkModeEnabled") private var isDarkModeEnabled = false
     @AppStorage("isAppLockEnabled") private var isAppLockEnabled = false
     @AppStorage("isBiometricEnabled") private var isBiometricEnabled = false
+    @AppStorage("trustSelfSignedCerts") private var trustSelfSignedCerts = false
 
     @State private var serverURL = ""
     @State private var password = ""
@@ -69,7 +70,6 @@ struct SettingsView: View {
                     Task { await store.login(url: serverURL, password: password) }
                 } label: {
                     HStack {
-                        Spacer()
                         if store.isLoading {
                             ProgressView()
                                 .padding(.trailing, 8)
@@ -95,6 +95,21 @@ struct SettingsView: View {
                     serverURL = ""
                     password = ""
                 }
+            }
+
+            Toggle(tr("Trust Self-Signed Certificates", "Selbstsignierten Zertifikaten vertrauen", lang), isOn: $trustSelfSignedCerts)
+                .onChange(of: trustSelfSignedCerts) { _, _ in store.resetSession() }
+
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text(tr(
+                    "Only enable if you manage the server and trust its network.",
+                    "Nur aktivieren, wenn Sie den Server selbst betreiben und dem Netzwerk vertrauen.",
+                    lang
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             if let error = store.errorMessage {
@@ -171,11 +186,12 @@ struct SettingsView: View {
 
     private var linksSection: some View {
         Section(tr("Links & Contact", "Links & Kontakt", lang)) {
-            if let url = URL(string: "https://github.com/GatzeStreicheln/Companion-for-Duplicati") {
+            if let url = URL(string: "https://github.com/gatzenga/Companion-for-Duplicati") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "chevron.left.forwardslash.chevron.right")
                             .foregroundStyle(.secondary)
+                            .frame(width: 24)
                         Text("GitHub")
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -185,11 +201,12 @@ struct SettingsView: View {
                 }
             }
 
-            if let url = URL(string: "https://gatzestreicheln.github.io/Companion-for-Duplicati/privacy.html") {
+            if let url = URL(string: "https://gatzenga.github.io/Companion-for-Duplicati/privacy.html") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "hand.raised")
                             .foregroundStyle(.secondary)
+                            .frame(width: 24)
                         Text(tr("Privacy Policy", "Datenschutz", lang))
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -204,6 +221,7 @@ struct SettingsView: View {
                     HStack {
                         Image(systemName: "envelope")
                             .foregroundStyle(.secondary)
+                            .frame(width: 24)
                         Text(tr("Contact", "Kontakt", lang))
                         Spacer()
                         Image(systemName: "arrow.up.right")
