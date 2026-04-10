@@ -5,6 +5,8 @@
 
 A native iOS app to monitor your Duplicati backups on the go.
 
+https://testflight.apple.com/join/HagdJKad
+
 ---
 
 ## What it does
