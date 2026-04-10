@@ -10,6 +10,7 @@ struct BackupDetailView: View {
     @State private var showError = false
     @State private var runErrorMessage = ""
     @State private var isRunning = false
+    @State private var retentionLabel: String?
 
     private var currentStatus: BackupStatus {
         store.effectiveStatus(for: backup)
@@ -23,6 +24,11 @@ struct BackupDetailView: View {
             logsSection
             errorSection
             actionsSection
+        }
+        .task {
+            if let detail = try? await store.fetchBackupDetail(id: backup.Backup.ID) {
+                retentionLabel = detail.retentionLabel(lang: lang)
+            }
         }
         .navigationTitle(backup.Backup.Name)
         .navigationBarTitleDisplayMode(.inline)
@@ -120,6 +126,12 @@ struct BackupDetailView: View {
 
             if let count = backup.Backup.Metadata.TargetFilesCount, !count.isEmpty {
                 detailRow(tr("Backup Files", "Backup-Dateien", lang), value: formatSwissNumber(count))
+            }
+
+            if let count = backup.Backup.Metadata.TargetFilesetsCount, !count.isEmpty {
+                detailRow(tr("Versions", "Versionen", lang), value: formatSwissNumber(count))
+            } else if let retention = retentionLabel {
+                detailRow(tr("Versions", "Versionen", lang), value: retention)
             }
         }
     }

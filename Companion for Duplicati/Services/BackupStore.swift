@@ -189,6 +189,12 @@ final class BackupStore {
         await pollOnce()
     }
 
+    // MARK: - Backup-Detail
+
+    func fetchBackupDetail(id: String) async throws -> BackupDetailResponse {
+        try await api.fetchBackupDetail(id: id)
+    }
+
     // MARK: - Backup-Logs
 
     func fetchBackupLogs(id: String) async throws -> [BackupLogEntry] {

@@ -19,8 +19,10 @@ struct BackupRowView: View {
                     .font(.body)
                     .fontWeight(.medium)
 
-                // Letztes Backup (relativ)
+                // Letztes Backup (relativ) — Fallback auf LastBackupDate
                 if let relative = backup.relativeLastBackupString(lang: appLanguage) {
+                    subtitleRow(label: tr("Last Backup", "Letztes Backup", appLanguage), value: relative)
+                } else if let relative = relativeTimeString(from: backup.Backup.Metadata.LastBackupDate, lang: appLanguage) {
                     subtitleRow(label: tr("Last Backup", "Letztes Backup", appLanguage), value: relative)
                 } else if case .neverRun = status {
                     Text(tr("Never run", "Noch nie ausgeführt", appLanguage))
@@ -28,9 +30,12 @@ struct BackupRowView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Nächstes Backup aus ProposedSchedule
+                // Nächstes Backup — ProposedSchedule, Fallback auf Schedule.Time
                 if let nextTime = nextScheduledTime {
                     subtitleRow(label: tr("Next Backup", "Nächstes Backup", appLanguage), value: nextTime)
+                } else if let scheduleTime = backup.Schedule?.Time,
+                          let formatted = formatScheduleDate(scheduleTime, lang: appLanguage, timeFormat: timeFormat) {
+                    subtitleRow(label: tr("Next Backup", "Nächstes Backup", appLanguage), value: formatted)
                 }
             }
         }

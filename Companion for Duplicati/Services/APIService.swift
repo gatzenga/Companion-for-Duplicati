@@ -138,6 +138,27 @@ final class APIService {
         }
     }
 
+    // MARK: - Backup-Detail (volle Konfiguration)
+
+    func fetchBackupDetail(id: String) async throws -> BackupDetailResponse {
+        let data = try await authenticatedRequest(path: "/api/v1/backup/\(id)")
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let backupObj = (json["backup"] ?? json["Backup"]) as? [String: Any],
+              let rawSettings = (backupObj["settings"] ?? backupObj["Settings"]) as? [[String: Any]]
+        else {
+            return BackupDetailResponse(settings: [])
+        }
+
+        let settings: [BackupSetting] = rawSettings.compactMap { dict in
+            guard let name = (dict["name"] ?? dict["Name"]) as? String else { return nil }
+            let value = (dict["value"] ?? dict["Value"]) as? String
+            return BackupSetting(name: name, value: value)
+        }
+
+        return BackupDetailResponse(settings: settings)
+    }
+
     // MARK: - Letzter Log-Eintrag eines Backups
 
     func fetchLastLog(id: String) async throws -> BackupLogMessage? {

@@ -40,6 +40,7 @@ struct BackupMetadata: Codable, Sendable {
     let TargetFilesSize: String?
     let TargetFilesCount: String?
     let TargetSizeString: String?
+    let TargetFilesetsCount: String?
 }
 
 struct BackupSchedule: Codable, Sendable {
@@ -48,6 +49,33 @@ struct BackupSchedule: Codable, Sendable {
     let Repeat: String?
     let LastRun: String?
     let Rule: String?
+}
+
+// MARK: - Backup Detail (full config)
+
+struct BackupDetailResponse: Sendable {
+    let settings: [BackupSetting]
+
+    func retentionLabel(lang: String = "en") -> String? {
+        if let v = settings.first(where: { $0.name.lowercased() == "keep-versions" }),
+           let value = v.value, !value.isEmpty, value != "0" {
+            return value
+        }
+        if let v = settings.first(where: { $0.name.lowercased() == "keep-time" }),
+           let value = v.value, !value.isEmpty {
+            return lang == "de" ? "\(value) (Zeit)" : "\(value) (time-based)"
+        }
+        if let v = settings.first(where: { $0.name.lowercased() == "retention-policy" }),
+           let value = v.value, !value.isEmpty {
+            return value
+        }
+        return nil
+    }
+}
+
+struct BackupSetting: Sendable {
+    let name: String
+    let value: String?
 }
 
 // MARK: - Status
