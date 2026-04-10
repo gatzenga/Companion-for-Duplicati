@@ -1,3 +1,7 @@
+<p align="left">
+  <img src="Companion for Duplicati/Assets.xcassets/AppIcon.appiconset/icon-light.png" width="150" alt="App Logo"/>
+</p>
+
 
 A native iOS app to monitor your Duplicati backups on the go.
 
