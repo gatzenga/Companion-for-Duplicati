@@ -87,24 +87,6 @@ enum BackupStatus {
 }
 
 extension BackupListItem {
-    // Metadaten-basierter Status (Fallback wenn kein Log verfügbar)
-    var status: BackupStatus {
-        let lastBackupDate = Backup.Metadata.LastBackupDate ?? ""
-
-        if lastBackupDate.isEmpty { return .neverRun }
-
-        // Fehler nur anzeigen wenn er NACH dem letzten erfolgreichen Backup war
-        let errorMessage = Backup.Metadata.LastErrorMessage ?? ""
-        if !errorMessage.isEmpty,
-           let errorDate = parseBackupDate(Backup.Metadata.LastErrorDate),
-           let backupDate = parseBackupDate(lastBackupDate),
-           errorDate > backupDate {
-            return .error(errorMessage)
-        }
-
-        return .ok
-    }
-
     var lastBackupDate: Date? {
         parseBackupDate(Backup.Metadata.LastBackupStarted)
     }

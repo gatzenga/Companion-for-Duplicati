@@ -50,20 +50,13 @@ struct HomeView: View {
             if store.isLoggedIn {
                 await store.fetchBackups()
                 store.startPolling()
-                // Sofort einen Poll triggern für aktuelle Server-Daten
-                await store.pollOnce()
             }
         }
-        // Polling pausieren wenn App in den Hintergrund geht
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
                 store.stopPolling()
             } else if phase == .active && store.isLoggedIn {
-                // Sofort einen Poll, um nach Background aktuell zu sein
-                Task {
-                    await store.pollOnce()
-                    store.startPolling()
-                }
+                store.startPolling()
             }
         }
     }
@@ -89,7 +82,6 @@ struct HomeView: View {
     @ViewBuilder
     private var topBanner: some View {
         if store.isServerRunning {
-            // Server is running — show whatever is happening, no own logic
             if let progress = store.progressState {
                 bannerSection {
                     ProgressBannerView(
@@ -107,7 +99,6 @@ struct HomeView: View {
                 }
             }
         } else if let next = store.serverState?.ProposedSchedule.first {
-            // Server idle — show next scheduled backup
             nextBackupSection(name: store.backupName(for: next.Item1), schedule: next.Item2)
         }
     }

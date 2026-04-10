@@ -33,16 +33,13 @@ struct BackupLogsView: View {
                 )
             } else {
                 List(entries) { entry in
-                    let parsed = parseLogMessage(entry.message)
                     NavigationLink(destination: BackupLogDetailView(
                         entry: entry,
-                        parsed: parsed,
                         lang: lang,
                         timeFormat: timeFormat
                     )) {
                         BackupLogRowView(
                             entry: entry,
-                            parsed: parsed,
                             lang: lang,
                             timeFormat: timeFormat
                         )
@@ -72,47 +69,23 @@ struct BackupLogsView: View {
 
 struct BackupLogRowView: View {
     let entry: BackupLogEntry
-    let parsed: BackupLogMessage?
     let lang: String
     let timeFormat: String
 
-    private var logStatus: LogStatus {
-        parsed?.derivedStatus ?? .ok
-    }
-
-    // Gibt es ein ParsedResult → farbige Statusanzeige
-    // Gibt es keins → EntryType neutral in Grau
-    private var hasParsedResult: Bool {
-        parsed?.ParsedResult != nil
-    }
-
     private var statusLabel: String {
-        guard hasParsedResult else {
+        guard let parsed = entry.parsedMessage, parsed.ParsedResult != nil else {
             return entry.entryType ?? tr("Log Entry", "Log-Eintrag", lang)
         }
-        switch logStatus {
-        case .ok:
-            return parsed?.PartialBackup == true
-                ? tr("Partial Backup", "Partielles Backup", lang)
-                : tr("Success", "Erfolgreich", lang)
-        case .warning: return tr("Warning", "Warnung", lang)
-        case .error:   return tr("Error", "Fehler", lang)
-        }
+        return parsed.statusLabel(lang: lang)
     }
 
     private var statusColor: Color {
-        guard hasParsedResult else { return .secondary }
-        switch logStatus {
-        case .ok:      return parsed?.PartialBackup == true ? .orange : .green
-        case .warning: return .orange
-        case .error:   return .red
-        }
+        guard let parsed = entry.parsedMessage, parsed.ParsedResult != nil else { return .secondary }
+        return parsed.statusColor
     }
 
     private var dateDisplay: String {
-        // Bevorzuge BeginTime aus dem geparsten Message-JSON (ISO8601-String),
-        // Fallback auf den Unix-Timestamp der SQLite-Zeile.
-        if let beginTime = parsed?.BeginTime,
+        if let beginTime = entry.parsedMessage?.BeginTime,
            let formatted = formatLogDate(beginTime, lang: lang, timeFormat: timeFormat) {
             return formatted
         }
@@ -130,7 +103,7 @@ struct BackupLogRowView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(statusColor)
                 Spacer()
-                if let duration = formatDuration(parsed?.Duration, lang: lang) {
+                if let duration = formatDuration(entry.parsedMessage?.Duration, lang: lang) {
                     Text(duration)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

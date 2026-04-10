@@ -4,7 +4,7 @@ import Security
 enum KeychainService {
     private static let serviceName = "ch.vkugler.duplicati.companion"
 
-    enum Key: String {
+    enum Key: String, CaseIterable {
         case password = "server_password"
         case token = "access_token"
         case serverURL = "server_url"
@@ -55,9 +55,6 @@ enum KeychainService {
     }
 
     static func deleteAll() {
-        delete(.password)
-        delete(.token)
-        delete(.serverURL)
-        delete(.appPIN)
+        Key.allCases.forEach { delete($0) }
     }
 }

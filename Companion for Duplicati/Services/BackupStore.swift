@@ -162,7 +162,11 @@ final class BackupStore {
     func fetchNotificationsData() async {
         do {
             notifications = try await api.fetchNotifications()
-        } catch {}
+        } catch {
+            #if DEBUG
+            print("[BackupStore] fetchNotifications failed: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     // MARK: - Dismiss Notification
@@ -171,14 +175,17 @@ final class BackupStore {
         do {
             try await api.dismissNotification(id: id)
             notifications.removeAll { $0.notificationID == id }
-        } catch {}
+        } catch {
+            #if DEBUG
+            print("[BackupStore] dismissNotification failed: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     // MARK: - Run Backup
 
     func runBackup(id: String) async throws {
         try await api.runBackup(id: id)
-        // Sofort Poll nach Backup-Start – nicht auf den nächsten 1s-Zyklus warten
         await pollOnce()
     }
 
@@ -197,9 +204,12 @@ final class BackupStore {
             } else {
                 try await api.pauseServer()
             }
-            // Sofort aktuellen Zustand holen
             await pollOnce()
-        } catch {}
+        } catch {
+            #if DEBUG
+            print("[BackupStore] togglePause failed: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     // MARK: - Polling
@@ -208,9 +218,9 @@ final class BackupStore {
         guard isLoggedIn else { return }
         pollingTask?.cancel()
 
-        pollingTask = Task {
+        pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                await pollOnce()
+                await self?.pollOnce()
                 try? await Task.sleep(for: .seconds(1))
             }
         }

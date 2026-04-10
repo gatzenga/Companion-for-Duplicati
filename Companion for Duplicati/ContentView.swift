@@ -10,7 +10,7 @@ struct ContentView: View {
         TabView(selection: $store.selectedTab) {
             HomeView()
                 .tabItem {
-                    Label("Home", systemImage: "house.fill")
+                    Label(tr("Home", "Home", appLanguage), systemImage: "house.fill")
                 }
                 .tag(AppTab.home)
 

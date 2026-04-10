@@ -22,8 +22,9 @@ enum APIError: LocalizedError {
     }
 }
 
-// MARK: - SSL-Delegate (selbstsignierte Zertifikate)
-
+// MARK: - SSL-Delegate
+// Accepts self-signed certificates — intentional for Homelab/self-hosted Duplicati instances.
+// This bypasses TLS validation: only use with trusted local networks or known servers.
 private final class SSLDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     func urlSession(
         _ session: URLSession,
@@ -139,8 +140,6 @@ final class APIService {
 
     // MARK: - Letzter Log-Eintrag eines Backups
 
-    // Gibt den geparsten BackupLogMessage des letzten Runs zurück.
-    // pagesize=1 holt nur den neuesten Eintrag.
     func fetchLastLog(id: String) async throws -> BackupLogMessage? {
         let data = try await authenticatedRequest(path: "/api/v1/backup/\(id)/log?pagesize=1")
 
@@ -176,7 +175,6 @@ final class APIService {
         return notifications
     }
 
-    // Einzelne Notification quittieren (löschen)
     func dismissNotification(id: Int) async throws {
         try await authenticatedPost(path: "/api/v1/notification/\(id)", method: "DELETE")
     }
@@ -217,7 +215,6 @@ final class APIService {
 
     // MARK: - Interne Hilfsmethoden
 
-    // POST oder DELETE ohne Body (z.B. pause / resume / notification dismiss)
     private func authenticatedPost(path: String, method: String = "POST") async throws {
         guard let url = URL(string: "\(baseURL)\(path)") else { throw APIError.invalidURL }
 

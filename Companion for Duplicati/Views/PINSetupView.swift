@@ -82,7 +82,8 @@ struct PINSetupView: View {
             } else {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                 shake = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.6))
                     shake = false
                     pin = ""
                     firstPIN = ""
