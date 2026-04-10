@@ -28,7 +28,6 @@ struct SettingsView: View {
             }
             .navigationTitle(tr("Settings", "Einstellungen", lang))
         }
-        .onChange(of: lang) { _, _ in }
         .sheet(isPresented: $showPINSetup) {
             PINSetupView(isChanging: AppLockManager.hasPIN()) {
                 isAppLockEnabled = true

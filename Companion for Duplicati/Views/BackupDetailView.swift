@@ -20,6 +20,7 @@ struct BackupDetailView: View {
             infoSection
             statusSection
             sizeSection
+            logsSection
             errorSection
             actionsSection
         }
@@ -76,17 +77,19 @@ struct BackupDetailView: View {
                     Circle()
                         .fill(currentStatus.color)
                         .frame(width: 8, height: 8)
-                    Text(getStatusLabel())
+                    Text(currentStatus.shortLabel(lang: lang))
                         .foregroundStyle(currentStatus.color)
                 }
             }
 
-            if let lastBackup = backup.Backup.Metadata.LastBackupStartedString, !lastBackup.isEmpty {
-                detailRow(tr("Last Backup", "Letztes Backup", lang), value: lastBackup)
-            }
-
             if let nextBackup = formatScheduleDate(backup.Schedule?.Time, lang: lang, timeFormat: timeFormat) {
                 detailRow(tr("Next Backup", "Nächstes Backup", lang), value: nextBackup)
+            }
+
+            if let lastBackup = backup.Backup.Metadata.LastBackupStartedString, !lastBackup.isEmpty {
+                detailRow(tr("Last Backup", "Letztes Backup", lang), value: lastBackup)
+            } else if let lastBackup = formatLogDate(backup.Backup.Metadata.LastBackupStarted, lang: lang, timeFormat: timeFormat) {
+                detailRow(tr("Last Backup", "Letztes Backup", lang), value: lastBackup)
             }
 
             if let duration = formatDuration(backup.Backup.Metadata.LastBackupDuration, lang: lang) {
@@ -117,6 +120,19 @@ struct BackupDetailView: View {
 
             if let count = backup.Backup.Metadata.TargetFilesCount, !count.isEmpty {
                 detailRow(tr("Backup Files", "Backup-Dateien", lang), value: formatSwissNumber(count))
+            }
+        }
+    }
+
+    // MARK: - Logs
+
+    private var logsSection: some View {
+        Section {
+            NavigationLink(destination: BackupLogsView(backup: backup)) {
+                Label(
+                    tr("Show Logs", "Logs anzeigen", lang),
+                    systemImage: "doc.text.magnifyingglass"
+                )
             }
         }
     }
@@ -175,15 +191,6 @@ struct BackupDetailView: View {
     }
 
     // MARK: - Helpers
-
-    private func getStatusLabel() -> String {
-        switch currentStatus {
-        case .ok:       tr("OK", "OK", lang)
-        case .warning:  tr("Warning", "Warnung", lang)
-        case .error:    tr("Error", "Fehler", lang)
-        case .neverRun: tr("Never Run", "Noch nie ausgeführt", lang)
-        }
-    }
 
     private func detailRow(_ label: String, value: String) -> some View {
         HStack {

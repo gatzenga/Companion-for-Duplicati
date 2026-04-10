@@ -1,18 +1,50 @@
 import Foundation
 
 // MARK: - Log-Eintrag vom Endpunkt /api/v1/backup/{id}/log
+//
+// Die SQLite-Tabelle "LogData" hat folgende Spalten:
+//   ID INTEGER, OperationID INTEGER, Timestamp INTEGER (Unix-Sekunden),
+//   Type TEXT, Message TEXT, Exception TEXT
+//
+// Wichtig: SQLite-NULL wird von Duplicatis DumpTable als DBNull.Value
+// übergeben, das System.Text.Json als {} serialisieren kann statt als null.
+// Deshalb dekodieren wir jeden Wert fault-tolerant mit try?.
 
-struct BackupLogEntry: Codable, Sendable {
-    let ID: Int
-    let BackupID: String?
-    let Timestamp: String?
-    let Message: String?   // JSON-String, muss separat geparst werden
-    let Exception: String?
-    let EntryType: String? // z.B. "Information", "RetryAttempt"
+struct BackupLogEntry: Sendable, Identifiable {
+    let id: Int            // Identifiable, mapped von JSON-Feld "ID"
+    let operationID: Int?
+    let timestamp: Int?    // Unix-Timestamp in Sekunden
+    let message: String?   // JSON-String, muss separat geparst werden
+    let exception: String?
+    let entryType: String? // z.B. "Information", "RetryAttempt"
 
+    // Timestamp als Date-Objekt
+    var timestampDate: Date? {
+        guard let ts = timestamp else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(ts))
+    }
+}
+
+extension BackupLogEntry: Codable {
     enum CodingKeys: String, CodingKey {
-        case ID, BackupID, Timestamp, Message, Exception
-        case EntryType = "Type"
+        case id          = "ID"
+        case operationID = "OperationID"
+        case timestamp   = "Timestamp"
+        case message     = "Message"
+        case exception   = "Exception"
+        case entryType   = "Type"
+    }
+
+    // Fault-toleranter Decoder: jedes Feld mit try? damit ein falscher Typ
+    // (z.B. {} statt null für Exception) nicht die ganze Liste zum Absturz bringt.
+    init(from decoder: Decoder) throws {
+        let c   = try decoder.container(keyedBy: CodingKeys.self)
+        id          = (try? c.decode(Int.self,    forKey: .id))          ?? 0
+        operationID = try? c.decode(Int.self,    forKey: .operationID)
+        timestamp   = try? c.decode(Int.self,    forKey: .timestamp)
+        message     = try? c.decode(String.self, forKey: .message)
+        exception   = try? c.decode(String.self, forKey: .exception)
+        entryType   = try? c.decode(String.self, forKey: .entryType)
     }
 }
 

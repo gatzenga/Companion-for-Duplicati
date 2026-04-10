@@ -218,6 +218,45 @@ func formatErrorDate(_ dateString: String?, lang: String = "en") -> String? {
     return formatter.string(from: date)
 }
 
+// MARK: - Log-Zeitstempel parsen (.NET liefert bis zu 7 Nachkommastellen)
+
+func parseLogTimestamp(_ dateString: String?) -> Date? {
+    guard let dateString, !dateString.isEmpty else { return nil }
+
+    let iso = ISO8601DateFormatter()
+
+    // Mit Sekundenbruchteilen (iOS unterstützt 1–9 Stellen)
+    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = iso.date(from: dateString) { return date }
+
+    // Ohne Sekundenbruchteile
+    iso.formatOptions = [.withInternetDateTime]
+    if let date = iso.date(from: dateString) { return date }
+
+    // Fallback auf bestehende Parser
+    return parseScheduleDate(dateString) ?? parseBackupDate(dateString)
+}
+
+func formatLogDate(_ dateString: String?, lang: String = "en", timeFormat: String = "24h") -> String? {
+    guard let dateString, !dateString.isEmpty else { return nil }
+    guard let date = parseLogTimestamp(dateString) else { return dateString }
+    return formatDate(date, lang: lang, timeFormat: timeFormat)
+}
+
+// Formatiert ein Date-Objekt direkt (z.B. aus Unix-Timestamp)
+func formatDate(_ date: Date, lang: String = "en", timeFormat: String = "24h") -> String {
+    let dateFormatter = DateFormatter()
+    dateFormatter.locale = Locale(identifier: lang == "de" ? "de_CH" : "en_US")
+    dateFormatter.dateStyle = .medium
+    dateFormatter.timeStyle = .none
+
+    let timeFormatter = DateFormatter()
+    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
+    timeFormatter.dateFormat = timeFormat == "12h" ? "h:mm a" : "HH:mm"
+
+    return "\(dateFormatter.string(from: date)), \(timeFormatter.string(from: date))"
+}
+
 // MARK: - Dateigrösse formatieren
 
 func formatBytes(_ bytes: Int64) -> String {

@@ -149,7 +149,19 @@ final class APIService {
             return nil
         }
 
-        return parseLogMessage(first.Message)
+        return parseLogMessage(first.message)
+    }
+
+    // MARK: - Alle Log-Einträge eines Backups
+
+    func fetchBackupLogs(id: String, pageSize: Int = 50) async throws -> [BackupLogEntry] {
+        let data = try await authenticatedRequest(path: "/api/v1/backup/\(id)/log?pagesize=\(pageSize)")
+
+        guard let entries = try? JSONDecoder().decode([BackupLogEntry].self, from: data) else {
+            throw APIError.decodingError
+        }
+
+        return entries
     }
 
     // MARK: - Notifications
@@ -166,19 +178,7 @@ final class APIService {
 
     // Einzelne Notification quittieren (löschen)
     func dismissNotification(id: Int) async throws {
-        guard let url = URL(string: "\(baseURL)/api/v1/notification/\(id)") else {
-            throw APIError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (_, response) = try await session.data(for: request)
-
-        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
-            guard try await refreshToken() else { throw APIError.unauthorized }
-        }
+        try await authenticatedPost(path: "/api/v1/notification/\(id)", method: "DELETE")
     }
 
     // MARK: - Server-Status
@@ -191,6 +191,16 @@ final class APIService {
         }
 
         return state
+    }
+
+    // MARK: - Server Pause / Resume
+
+    func pauseServer() async throws {
+        try await authenticatedPost(path: "/api/v1/serverstate/pause")
+    }
+
+    func resumeServer() async throws {
+        try await authenticatedPost(path: "/api/v1/serverstate/resume")
     }
 
     // MARK: - Live-Fortschritt
@@ -206,6 +216,36 @@ final class APIService {
     }
 
     // MARK: - Interne Hilfsmethoden
+
+    // POST oder DELETE ohne Body (z.B. pause / resume / notification dismiss)
+    private func authenticatedPost(path: String, method: String = "POST") async throws {
+        guard let url = URL(string: "\(baseURL)\(path)") else { throw APIError.invalidURL }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await session.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+
+        if http.statusCode == 401 {
+            guard try await refreshToken() else { throw APIError.unauthorized }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let (_, retry) = try await session.data(for: request)
+            guard let retryHTTP = retry as? HTTPURLResponse,
+                  (200...299).contains(retryHTTP.statusCode) else {
+                throw APIError.unauthorized
+            }
+            return
+        }
+
+        guard (200...299).contains(http.statusCode) else {
+            throw APIError.serverError(http.statusCode)
+        }
+    }
 
     private func authenticatedRequest(path: String) async throws -> Data {
         guard let url = URL(string: "\(baseURL)\(path)") else {

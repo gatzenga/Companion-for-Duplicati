@@ -178,6 +178,28 @@ final class BackupStore {
 
     func runBackup(id: String) async throws {
         try await api.runBackup(id: id)
+        // Sofort Poll nach Backup-Start – nicht auf den nächsten 1s-Zyklus warten
+        await pollOnce()
+    }
+
+    // MARK: - Backup-Logs
+
+    func fetchBackupLogs(id: String) async throws -> [BackupLogEntry] {
+        try await api.fetchBackupLogs(id: id)
+    }
+
+    // MARK: - Pause / Resume
+
+    func togglePause() async {
+        do {
+            if serverState?.isPaused == true {
+                try await api.resumeServer()
+            } else {
+                try await api.pauseServer()
+            }
+            // Sofort aktuellen Zustand holen
+            await pollOnce()
+        } catch {}
     }
 
     // MARK: - Polling
@@ -189,8 +211,7 @@ final class BackupStore {
         pollingTask = Task {
             while !Task.isCancelled {
                 await pollOnce()
-                let delay: Duration = isServerRunning ? .seconds(2) : .seconds(5)
-                try? await Task.sleep(for: delay)
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }

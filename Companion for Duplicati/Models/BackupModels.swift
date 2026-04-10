@@ -69,7 +69,7 @@ enum BackupStatus {
 
     func shortLabel(lang: String = "en") -> String {
         switch self {
-        case .ok:       lang == "de" ? "OK" : "OK"
+        case .ok:       "OK"
         case .warning:  lang == "de" ? "Warnung" : "Warning"
         case .error:    lang == "de" ? "Fehler" : "Error"
         case .neverRun: lang == "de" ? "Noch nie ausgeführt" : "Never Run"

@@ -40,6 +40,9 @@ struct HomeView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         sortMenu
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        pauseResumeButton
+                    }
                 }
             }
         }
@@ -122,6 +125,17 @@ struct HomeView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
+    }
+
+    // MARK: - Pause / Resume
+
+    private var pauseResumeButton: some View {
+        Button {
+            Task { await store.togglePause() }
+        } label: {
+            Image(systemName: store.serverState?.isPaused == true ? "play.fill" : "pause.fill")
+        }
+        .disabled(store.serverState == nil)
     }
 
     // MARK: - Sortier-Menü

@@ -133,6 +133,9 @@ struct ServerState: Codable {
     let HasWarning: Bool
     let HasError: Bool
     let SuggestedStatusIcon: String?
+    let LastEventID: Int?              // Für Long-Polling: mitschicken damit Server auf Änderung wartet
+
+    var isPaused: Bool { ProgramState == "Paused" }
 }
 
 // MARK: - Aktiver Task

@@ -24,6 +24,7 @@ struct Companion_for_DuplicatiApp: App {
                     AppLockView(isLocked: $isLocked)
                 }
             }
+            .tint(Color(red: 55/255, green: 100/255, blue: 185/255))
             .fullScreenCover(isPresented: $isLocked) {
                 AppLockView(isLocked: $isLocked)
             }
