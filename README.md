@@ -19,6 +19,8 @@ Duplicati is a solid backup tool – but checking your backup status means openi
 - Status of the last backup run
 - Next scheduled backup time
 - Trigger a backup manually from your phone
+- Notifications tab – see all server notifications in one place
+- Detailed log view for each backup
 - Credentials stored securely in the iOS Keychain
 - Works with any self-hosted Duplicati instance
 
@@ -26,13 +28,15 @@ Duplicati is a solid backup tool – but checking your backup status means openi
 
 ## Status
 
-Early development. The basics are working but expect rough edges. Feedback and feature requests welcome.
+Actively developed. Core features are stable – feedback and feature requests welcome.
 
 ---
 
 ## About this project
 
 I work in IT but I am not a software developer. I built this app with the help of Claude Code, an AI coding assistant. Without it, a project like this would not have been realistic for me.
+
+Companion for Duplicati is an unofficial app and is not affiliated with or endorsed by the Duplicati developers.
 
 ---
 
