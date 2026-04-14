@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="Companion for Duplicati/Assets.xcassets/AppIcon.appiconset/icon-light.png" width="150" alt="App Logo"/>
+  <img src="icon.png" width="150" alt="App Logo"/>
 </p>
 
 
