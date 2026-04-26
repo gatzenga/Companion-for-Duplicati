@@ -48,16 +48,9 @@ Found a bug or have a feature request? Open an issue.
 
 <table>
   <tr>
-    <td><img src="Screenshots/home.png" width="220"/></td>
-    <td><img src="Screenshots/running_job.png" width="220"/></td>
-    <td><img src="Screenshots/notifications.png" width="220"/></td>
-  </tr>
-</table>
-
-<table>
-  <tr>
-    <td><img src="Screenshots/details1.png" width="220"/></td>
-    <td><img src="Screenshots/details2.png" width="220"/></td>
-    <td><img src="Screenshots/settings.png" width="220"/></td>
+    <td><img src="screenshots/home.png" width="220"/></td>
+    <td><img src="screenshots/details.png" width="220"/></td>
+    <td><img src="screenshots/notifications.png" width="220"/></td>
+    <td><img src="screenshots/progress.png" width="220"/></td>
   </tr>
 </table>
