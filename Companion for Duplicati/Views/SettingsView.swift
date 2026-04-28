@@ -186,6 +186,21 @@ struct SettingsView: View {
 
     private var linksSection: some View {
         Section(tr("Links & Contact", "Links & Kontakt", lang)) {
+            if let url = URL(string: "https://vkugler.app") {
+                Link(destination: url) {
+                    HStack {
+                        Image(systemName: "globe")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24)
+                        Text(tr("Developer Website", "Developer-Website", lang))
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             if let url = URL(string: "https://github.com/gatzenga/Companion-for-Duplicati") {
                 Link(destination: url) {
                     HStack {
@@ -216,7 +231,7 @@ struct SettingsView: View {
                 }
             }
 
-            if let url = URL(string: "mailto:kontakt@vkugler.ch") {
+            if let url = URL(string: "mailto:contact@vkugler.app") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "envelope")

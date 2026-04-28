@@ -5,7 +5,9 @@
 
 A native iOS app to monitor your Duplicati backups on the go.
 
-https://testflight.apple.com/join/HagdJKad
+**Website:** https://vkugler.app
+
+**TestFlight:** https://testflight.apple.com/join/HagdJKad
 
 ---
 
