@@ -216,7 +216,7 @@ struct SettingsView: View {
                 }
             }
 
-            if let url = URL(string: "https://gatzenga.github.io/Companion-for-Duplicati/privacy.html") {
+            if let url = URL(string: "https://vkugler.app/cfd_privacy.html") {
                 Link(destination: url) {
                     HStack {
                         Image(systemName: "hand.raised")
