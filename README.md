@@ -5,11 +5,11 @@
 
 A native iOS app to monitor your Duplicati backups on the go.
 
-**Website:** https://vkugler.app
+[![Download on the App Store](https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-app-store.svg)](https://apps.apple.com/us/app/companion-for-duplicati/id6761927353)
 
-**TestFlight:** https://testflight.apple.com/join/HagdJKad
+[![TestFlight](https://img.shields.io/badge/TestFlight-0D96F6?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/HagdJKad)
 
-**App Store:** https://apps.apple.com/us/app/companion-for-duplicati/id6761927353
+[![Website](https://img.shields.io/badge/Website-000000?style=for-the-badge&logo=safari&logoColor=white)](https://vkugler.app)
 
 ---
 
