@@ -1,60 +1,28 @@
+# Archived - not actively developed
+
 <p align="left">
   <img src="icon.png" width="150" alt="App Logo"/>
 </p>
 
+# Companion for Duplicati
 
-A native iOS app to monitor your Duplicati backups on the go.
+Companion for Duplicati is a native iOS app for checking the status of self-hosted Duplicati backups from an iPhone.
 
-[![Download on the App Store](https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-app-store.svg)](https://apps.apple.com/us/app/companion-for-duplicati/id6761927353)
+This app is no longer actively developed. The repository remains available as a code archive with the existing implementation.
 
-[![TestFlight](https://img.shields.io/badge/TestFlight-0D96F6?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/HagdJKad)
+## Features
 
-[![Website](https://img.shields.io/badge/Website-000000?style=for-the-badge&logo=safari&logoColor=white)](https://vkugler.app)
-
----
-
-## What it does
-
-Duplicati is a solid backup tool – but checking your backup status means opening a browser, navigating to your instance and logging in. This app puts your backup status directly on your iPhone.
-
-**Features:**
-
-- Overview of all configured backups
+- Overview of configured backups
 - Status of the last backup run
 - Next scheduled backup time
-- Trigger a backup manually from your phone
-- Notifications tab – see all server notifications in one place
+- Trigger a backup manually from the phone
+- Notifications tab for server notifications
 - Detailed log view for each backup
-- Credentials stored securely in the iOS Keychain
-- Works with any self-hosted Duplicati instance
-
----
+- Credentials stored in the iOS Keychain
+- Works with self-hosted Duplicati instances
 
 ## Status
 
-Actively developed. Core features are stable – feedback and feature requests welcome.
-
----
-
-## About this project
-
-I work in IT but I am not a software developer. I built this app with the help of Claude Code, an AI coding assistant. Without it, a project like this would not have been realistic for me.
+This repository is kept as-is. App Store, TestFlight, website, contribution, and screenshot references have been removed.
 
 Companion for Duplicati is an unofficial app and is not affiliated with or endorsed by the Duplicati developers.
-
----
-
-## Contributing
-
-Found a bug or have a feature request? Open an issue.
-
----
-
-<table>
-  <tr>
-    <td><img src="screenshots/home.png" width="220"/></td>
-    <td><img src="screenshots/details.png" width="220"/></td>
-    <td><img src="screenshots/notifications.png" width="220"/></td>
-    <td><img src="screenshots/progress.png" width="220"/></td>
-  </tr>
-</table>
